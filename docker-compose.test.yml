@@ -1,0 +1,17 @@
+# Overlay de pruebas locales: NO publica puertos al host (pihole queda
+# alcanzable solo dentro de la red interna pihole_net) y agrega un cliente
+# efímero para probar directo contra el contenedor, sin tocar el puerto 53
+# real de esta máquina.
+#
+# Uso: scripts/dev-test.sh help
+
+services:
+  pihole:
+    ports: !reset []
+
+  dns-test:
+    image: alpine:3.20
+    entrypoint: ["sh", "-c", "apk add --no-cache bind-tools >/dev/null 2>&1; exec \"$@\"", "--"]
+    networks:
+      - pihole_net
+    profiles: ["test"]

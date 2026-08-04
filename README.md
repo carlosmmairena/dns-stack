@@ -1,17 +1,30 @@
-# DNS Stack - Pi-Hole + DNSCrypt-Proxy + Quad9 + Container
+# DNS Stack - Pi-Hole + DNSCrypt-Proxy
 
 Stack de DNS para la resolución DNS de una LAN.
 
 ## ¿Qué puede hacer?
 
 - Filtra publicidad y dominios maliciosos en toda la LAN (Pi-hole).
-- Cifra las consultas DNS salientes hacia Quad9 vía DNSCrypt — nadie entre la red e internet ve en claro qué dominios se resuelven.
+- Cifra las consultas DNS salientes vía DNSCrypt hacia dos proveedores upstream independientes (Quad9 y CleanBrowsing Security), con failover automático entre ambos — nadie entre la red e internet ve en claro qué dominios se resuelven, y una interrupción de un proveedor no deja a la LAN sin DNS.
 - Corre en Raspberry Pi (arm64 por defecto, arm de 32 bits ajustando `CPU_ARCH`).
 
-Flujo:
+## Flujos
 
+**Resolución normal (ambos resolvers disponibles):**
 ```
-device --> [Pi-hole] --> [DNSCrypt-Proxy] --> Quad9 (DNS encriptado) --> internet
+device → Pi-hole → dnscrypt-proxy ──┬─▶ quad9-dnscrypt-ip4-filter-pri (más rápido en wp2)
+                                     └─▶ cleanbrowsing-security (candidato alterno, no consultado)
+dnscrypt-proxy elige el servidor con mejor RTT/tasa de éxito dinámica (wp2) y responde a Pi-hole.
+```
+
+**Fallo de Quad9 (failover):**
+```
+device → Pi-hole → dnscrypt-proxy ──✕─▶ quad9-dnscrypt-ip4-filter-pri (timeout / sin respuesta)
+                                     │
+                                     └─▶ cleanbrowsing-security ──▶ responde
+dnscrypt-proxy detecta la degradación (RTT/fallas) y desplaza el peso de selección
+hacia cleanbrowsing-security en consultas subsiguientes — sin intervención manual,
+sin caída de servicio para la LAN.
 ```
 
 ## Requisitos
@@ -48,11 +61,14 @@ Un punto muy importante de todo el stack, pendiente de implementar después de e
 ```bash
 dns-stack/
 ├── docker-compose.yml
+├── docker-compose.test.yml   (overlay de pruebas locales, ver CONTRIBUTING.md)
 ├── .env.example
 ├── .gitignore
 ├── dnscrypt-proxy/
 │   ├── Dockerfile
 │   └── dnscrypt-proxy.toml
+├── scripts/
+│   └── dev-test.sh           (ver CONTRIBUTING.md)
 ├── etc-pihole/          (se crea sola al levantar pihole)
 └── etc-dnsmasq.d/       (se crea sola al levantar pihole)
 ```

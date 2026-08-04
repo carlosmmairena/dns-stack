@@ -3,7 +3,7 @@ schema: spec-driven
 # Project context
 context: |
   Stack de DNS para securizar la resolución DNS de dispositivos dentro de una LAN.
-  Flujo: device --> [Pi-hole] --> [DNSCrypt-Proxy] --> Quad9 (DNS encriptado) --> internet.
+  Flujo: device --> [Pi-hole] --> [DNSCrypt-Proxy] --> Quad9 / CleanBrowsing Security (DNS encriptado, failover automático) --> internet.
 
   Idioma: artefactos y commits (conventional commits) en español | código en inglés
 
@@ -13,9 +13,13 @@ context: |
       web en 8080. IP fija 172.20.0.3 en la red pihole_net. Reenvía todo a
       dnscrypt-proxy vía FTLCONF_dns_upstreams=172.20.0.2#5053.
     - dnscrypt-proxy (build local, dnscrypt-proxy 2.1.18): resolver upstream
-      encriptado hacia Quad9 (server_names=quad9-dnscrypt-ip4-filter-pri),
-      require_dnssec=true, require_nolog=true. Escucha en 172.20.0.2:5053,
-      no expuesto fuera de la red interna pihole_net.
+      encriptado hacia dos proveedores independientes
+      (server_names=quad9-dnscrypt-ip4-filter-pri,cleanbrowsing-security),
+      con balanceo/failover automático nativo (lb_strategy, default wp2).
+      require_dnssec=true, require_nolog=true — inertes con server_names
+      explícito, cada proveedor fue vetted manualmente contra fuente primaria
+      (ver openspec/changes/add-upstream-dns-redundancy). Escucha en
+      172.20.0.2:5053, no expuesto fuera de la red interna pihole_net.
     - Red Docker bridge dedicada pihole_net (172.20.0.0/24) con IPs estáticas
       para ambos contenedores.
 
@@ -32,7 +36,7 @@ context: |
   Pendiente crítico fuera del compose: regla de firewall/DNAT que fuerce a
   todos los dispositivos de la LAN a resolver únicamente vía Pi-hole,
   bloqueando DNS de salida hacia otros resolvers (ej. 8.8.8.8, 1.1.1.1).
-  Sin esa regla, el hardening de la cadena Pi-hole -> DNSCrypt-Proxy -> Quad9
+  Sin esa regla, el hardening de la cadena Pi-hole -> DNSCrypt-Proxy -> upstream
   es sólido pero evadible por cualquier dispositivo que configure su propio
   DNS — es el punto más importante de todo el stack.
 
@@ -41,10 +45,13 @@ context: |
       autenticación de cliente.
     - Pi-hole -> dnscrypt-proxy: en claro pero aislado en red docker interna
       (pihole_net), sin puerto publicado — no es superficie de ataque externa.
-    - dnscrypt-proxy -> Quad9: DNSCrypt cifrado y autenticado. La validación
-      DNSSEC real la hace Quad9 (require_dnssec en dnscrypt-proxy solo filtra
-      resolvers compatibles, no valida localmente); se confía en el AD flag
-      porque el canal es autenticado.
+    - dnscrypt-proxy -> upstream (Quad9 / CleanBrowsing Security): DNSCrypt
+      cifrado y autenticado con ambos. La validación DNSSEC real la hace cada
+      proveedor (require_dnssec en dnscrypt-proxy no filtra nada cuando
+      server_names es explícito, no valida localmente); se confía en el AD
+      flag porque el canal es autenticado. Ambos proveedores fueron vetted
+      manualmente (DNSSEC + no-log confirmados contra su documentación
+      técnica/política de privacidad, no solo el catálogo público).
 
   Vectores de bypass a considerar (más allá del DNS en puerto 53):
     - IPv6: SLAAC/RA (RDNSS) o DHCPv6 pueden entregarle a un dispositivo un
@@ -58,7 +65,7 @@ context: |
 rules:
   proposal:
     - Indicar explícitamente el impacto en la cadena de confianza DNS
-      (device -> Pi-hole -> DNSCrypt-Proxy -> Quad9)
+      (device -> Pi-hole -> DNSCrypt-Proxy -> upstream)
     - Siempre incluye las secciones de Goals y Non-Goals
     - Señalar si el cambio requiere ajustar reglas de firewall/DNAT o el FTLCONF_webserver_acl
     - Declarar el soporte IPv4 e IPv6 del cambio explícitamente — no asumir
@@ -72,7 +79,7 @@ rules:
     - Cada Requirement debe incluir la palabra SHALL o MUST (lo exige el validador)
   design:
     - Incluir diagramas de secuencia para flujos complejos (ej. resolución
-      DNS con cache miss, fallo de upstream Quad9)
+      DNS con cache miss, fallo de un resolver upstream)
   tasks:
     - Incluir verificación dual-stack — dig A y AAAA contra Pi-hole,
       confirmando resolución y DNSSEC (ad flag) en ambas familias

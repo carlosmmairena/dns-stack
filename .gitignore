@@ -1,3 +1,5 @@
 .env
 .claude/
 .agents/
+etc-pihole/
+etc-dnsmasq.d/

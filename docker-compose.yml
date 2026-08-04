@@ -1,0 +1,51 @@
+services:
+  dnscrypt-proxy:
+    build:
+      context: ./dnscrypt-proxy
+      args:
+        DNSCRYPT_VERSION: "2.1.18"
+        CPU_ARCH: "arm64"    # cambiar a "arm" si tu Pi OS es de 32 bits
+    container_name: dnscrypt-proxy
+    restart: unless-stopped
+    volumes:
+      - './dnscrypt-proxy/dnscrypt-proxy.toml:/config/dnscrypt-proxy.toml:ro'
+    networks:
+      pihole_net:
+        ipv4_address: 172.20.0.2
+
+  pihole:
+    image: pihole/pihole:2026.07.2
+    container_name: pihole
+    hostname: pihole
+    restart: unless-stopped
+    depends_on:
+      - dnscrypt-proxy
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+      - "8080:80/tcp"
+    environment:
+      TZ: 'America/Costa_Rica'
+      FTLCONF_webserver_api_password: '${PIHOLE_PASSWORD}'
+      FTLCONF_dns_upstreams: '172.20.0.2#5053'
+      FTLCONF_dns_dnssec: 'true'
+      FTLCONF_dns_listeningMode: 'LOCAL'
+      FTLCONF_dns_rateLimit_count: '1000'
+      FTLCONF_dns_rateLimit_interval: '60'
+      FTLCONF_webserver_acl: '+192.168.90.0/24;+127.0.0.1'
+      FTLCONF_webserver_session_timeout: '1800'
+    volumes:
+      - './etc-pihole:/etc/pihole'
+      - './etc-dnsmasq.d:/etc/dnsmasq.d'
+    networks:
+      pihole_net:
+        ipv4_address: 172.20.0.3
+    cap_add:
+      - NET_ADMIN
+
+networks:
+  pihole_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24

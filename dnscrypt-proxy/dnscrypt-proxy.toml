@@ -1,0 +1,37 @@
+listen_addresses = ['0.0.0.0:5053']
+
+# Dos resolvers upstream DNSCrypt independientes para evitar un único punto
+# de confianza/disponibilidad (ver openspec/changes/add-upstream-dns-redundancy).
+# dnscrypt-proxy balancea y hace failover entre ellos automáticamente
+# (lb_strategy, default wp2) sin intervención manual.
+#
+# IMPORTANTE: con server_names fijado explícitamente, require_dnssec/
+# require_nolog/require_nofilter de abajo NO filtran nada — dnscrypt-proxy usa
+# estos servidores "regardless of other filter settings" (doc oficial de
+# dnscrypt-proxy). Cada entrada fue vetted manualmente contra fuente primaria
+# del proveedor, no solo el catálogo de dnscrypt-resolvers:
+#   - quad9-dnscrypt-ip4-filter-pri: DNSSEC + no-log declarados por Quad9.
+#   - cleanbrowsing-security: DNSSEC confirmado en cleanbrowsing.org/help/docs/
+#     common-dns-resolution-with-resolvers-dnssec/; no-log (resolver público)
+#     confirmado en cleanbrowsing.org/privacy.
+server_names = ['quad9-dnscrypt-ip4-filter-pri', 'cleanbrowsing-security']
+dnscrypt_servers = true
+doh_servers = false
+odoh_servers = false
+
+require_dnssec = true
+require_nolog = true
+require_nofilter = false   # false porque se requiere el filtrado de Quad9/CleanBrowsing
+
+ipv4_servers = true
+ipv6_servers = false
+
+cache = true
+cache_size = 4096
+
+[sources.'public-resolvers']
+urls = ['https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/master/v3/public-resolvers.md']
+cache_file = 'public-resolvers.md'
+minisign_key = 'RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3'
+refresh_delay = 72
+prefix = ''
