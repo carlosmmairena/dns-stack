@@ -7,6 +7,7 @@ Stack de DNS para la resolución DNS de una LAN.
 - Filtra publicidad y dominios maliciosos en toda la LAN (Pi-hole).
 - Cifra las consultas DNS salientes vía DNSCrypt hacia dos proveedores upstream independientes (Quad9 y CleanBrowsing Security), con failover automático entre ambos — nadie entre la red e internet ve en claro qué dominios se resuelven, y una interrupción de un proveedor no deja a la LAN sin DNS.
 - Corre en Raspberry Pi (arm64 por defecto, arm de 32 bits ajustando `CPU_ARCH`).
+- Alcance intencional: **solo DNS**. No ofrece DHCP ni NTP — ambos quedan a cargo de lo que ya exista en tu red (router y host). El contenedor `pihole` corre sin `NET_ADMIN` porque no la necesita para esto.
 
 ## Flujos
 
@@ -31,6 +32,33 @@ sin caída de servicio para la LAN.
 
 - Docker y Docker Compose.
 - Un host dentro de la LAN que pueda quedar fijo como servidor DNS (ideal: IP estática).
+- El puerto 53 del host **NO** debe tener NAT/port-forward hacia WAN. `FTLCONF_dns_listeningMode` está en `ALL` (necesario para que Pi-hole acepte consultas de clientes LAN reales que le llegan vía el puerto publicado de Docker) — sin esta precondición, el resolver queda abierto a internet.
+
+## Preparar el host (Debian/Raspberry Pi OS con systemd-resolved)
+
+En hosts con `systemd-resolved` activo (Raspberry Pi OS y la mayoría de Debian/Ubuntu recientes), el puerto 53 ya está ocupado por su "stub listener" (`127.0.0.53`) antes de levantar este stack — `docker compose up -d` va a fallar con `address already in use` si no se libera primero. Confirmarlo con `sudo lsof -i :53` (va a aparecer un proceso `systemd-r` escuchando en `_localdnsstub:domain`/`_localdnsproxy:domain`).
+
+Editar `/etc/systemd/resolved.conf` y, bajo `[Resolve]`, dejar:
+
+```ini
+[Resolve]
+DNSStubListener=no
+DNS=127.0.0.1 9.9.9.9
+```
+
+- `DNSStubListener=no`: libera el puerto 53 para que Pi-hole pueda publicarlo.
+- `DNS=127.0.0.1 9.9.9.9`: hace que el propio host use Pi-hole como resolver primario (una vez levantado el stack) y Quad9 (`9.9.9.9`) como respaldo si Pi-hole no responde. `systemd-resolved` hace failover automático entre las entradas de `DNS=` (cada una lleva su propio contador de fallos) — no hace falta `FallbackDNS=` para esto, esa directiva solo se usa como último recurso cuando no hay ningún servidor DNS configurado en absoluto.
+
+Aplicar y verificar:
+
+```bash
+sudo rm -f /etc/resolv.conf
+sudo ln -s /run/systemd/resolve/resolv.conf /etc/resolv.conf
+sudo systemctl restart systemd-resolved
+sudo lsof -i :53   # no debería mostrar nada — el puerto queda libre para Pi-hole
+```
+
+Recién ahí `docker compose up -d` puede publicar el puerto 53 sin conflicto.
 
 ## Uso rápido
 
