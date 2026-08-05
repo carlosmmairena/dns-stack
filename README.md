@@ -70,6 +70,8 @@ docker compose up -d
 
 Después, apuntar el DNS del router (o de cada dispositivo) a la IP del host donde corre este stack.
 
+`pihole` no arranca a servir tráfico hasta que `dnscrypt-proxy` pasa su healthcheck — que hace una resolución DNS real (`drill` contra `example.com`), no solo comprueba que el puerto esté abierto. Esto significa que el arranque del stack depende de que el host tenga conectividad real a internet en ese momento: si no la hay, `dnscrypt-proxy` no se reporta sano y `pihole` queda esperando — comportamiento esperado, no un bug (sin upstream alcanzable no hay DNS que servir de todas formas).
+
 Nota sobre `LAN_SUBNET`: es la subnet real de tu LAN (ej. `192.168.1.0/24`), usada para la ACL del webserver (`FTLCONF_webserver_acl` en `docker-compose.yml` la arma como `+${LAN_SUBNET},+127.0.0.1`) — se define en `.env`, no se edita `docker-compose.yml`. Si falta en `.env`, `docker compose up` va a fallar explícitamente en vez de arrancar con una ACL rota. Formato interno de la ACL: lista separada por **comas** — `webserver.acl` es un string, no un array; un `;` como separador rompe el parser del ACL y tumba el webserver (`check_acl: subnet must be [+|-]IP-addr[/x]` en `webserver.log`).
 
 ## Verificación

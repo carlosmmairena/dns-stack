@@ -31,6 +31,14 @@ FROM alpine:3.20
 RUN apk add --no-cache ca-certificates \
     && addgroup -S dnscrypt && adduser -S -G dnscrypt dnscrypt
 
+# drill para el HEALTHCHECK del compose: resolución DNS real contra el
+# propio dnscrypt-proxy, no solo puerto abierto (ver openspec/changes/
+# add-dnscrypt-proxy-healthcheck). El paquete Alpine es "drill", no
+# "ldns-tools" (ese trae utilidades de ejemplo de ldns, sin el binario
+# drill). Versión fijada explícitamente; verificación vía la firma de
+# paquetes de apk.
+RUN apk add --no-cache drill=1.8.3-r2
+
 COPY --from=fetcher /build/dnscrypt-proxy /usr/local/bin/dnscrypt-proxy
 RUN chmod +x /usr/local/bin/dnscrypt-proxy
 

@@ -12,6 +12,17 @@ services:
     networks:
       pihole_net:
         ipv4_address: 172.20.0.2
+    # Resolución DNS real (no solo puerto abierto) contra el propio
+    # dnscrypt-proxy. start_period en 15s: un arranque en frío mide hasta
+    # ~6s hasta tener un upstream validado (fetch de resolvers + prueba de
+    # certificados) — con margen para no marcar "unhealthy" en un arranque
+    # normal (ver openspec/changes/add-dnscrypt-proxy-healthcheck).
+    healthcheck:
+      test: ["CMD", "drill", "-p", "5053", "example.com", "@127.0.0.1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
   pihole:
     image: pihole/pihole:2026.07.2
@@ -19,7 +30,8 @@ services:
     hostname: pihole
     restart: unless-stopped
     depends_on:
-      - dnscrypt-proxy
+      dnscrypt-proxy:
+        condition: service_healthy
     ports:
       - "53:53/tcp"
       - "53:53/udp"
