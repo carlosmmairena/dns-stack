@@ -64,13 +64,13 @@ Recién ahí `docker compose up -d` puede publicar el puerto 53 sin conflicto.
 
 ```bash
 cp .env.example .env
-# editar PIHOLE_PASSWORD en .env
+# editar PIHOLE_PASSWORD, TZ y LAN_SUBNET en .env
 docker compose up -d
 ```
 
 Después, apuntar el DNS del router (o de cada dispositivo) a la IP del host donde corre este stack.
 
-Nota sobre `FTLCONF_webserver_acl`: ajustar `192.168.90.0/24` a la subnet real de la LAN si es distinta — no copiarlo literal sin verificar. Formato: lista separada por **comas** (`+192.168.90.0/24,+127.0.0.1`) — `webserver.acl` es un string, no un array; usar `;` como separador rompe el parser del ACL y tumba el webserver (`check_acl: subnet must be [+|-]IP-addr[/x]` en `webserver.log`).
+Nota sobre `LAN_SUBNET`: es la subnet real de tu LAN (ej. `192.168.1.0/24`), usada para la ACL del webserver (`FTLCONF_webserver_acl` en `docker-compose.yml` la arma como `+${LAN_SUBNET},+127.0.0.1`) — se define en `.env`, no se edita `docker-compose.yml`. Si falta en `.env`, `docker compose up` va a fallar explícitamente en vez de arrancar con una ACL rota. Formato interno de la ACL: lista separada por **comas** — `webserver.acl` es un string, no un array; un `;` como separador rompe el parser del ACL y tumba el webserver (`check_acl: subnet must be [+|-]IP-addr[/x]` en `webserver.log`).
 
 ## Verificación
 
@@ -97,8 +97,7 @@ dns-stack/
 │   └── dnscrypt-proxy.toml
 ├── scripts/
 │   └── dev-test.sh           (ver CONTRIBUTING.md)
-├── etc-pihole/          (se crea sola al levantar pihole)
-└── etc-dnsmasq.d/       (se crea sola al levantar pihole)
+└── etc-pihole/          (se crea sola al levantar pihole)
 ```
 
 ## Referencias

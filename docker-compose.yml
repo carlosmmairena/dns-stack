@@ -25,7 +25,7 @@ services:
       - "53:53/udp"
       - "8080:80/tcp"
     environment:
-      TZ: 'America/Costa_Rica'
+      TZ: '${TZ}'
       FTLCONF_webserver_api_password: '${PIHOLE_PASSWORD}'
       FTLCONF_dns_upstreams: '172.20.0.2#5053'
       FTLCONF_dns_dnssec: 'true'
@@ -36,7 +36,11 @@ services:
       FTLCONF_dns_listeningMode: 'ALL'
       FTLCONF_dns_rateLimit_count: '1000'
       FTLCONF_dns_rateLimit_interval: '60'
-      FTLCONF_webserver_acl: '+192.168.90.0/24,+127.0.0.1'
+      # La subnet vive en .env (LAN_SUBNET) — el guard :? hace fallar el
+      # arranque con un mensaje claro si falta, en vez de producir una ACL
+      # malformada en silencio (ver openspec/changes/
+      # parametrize-env-vars-drop-dnsmasq-mount).
+      FTLCONF_webserver_acl: '+${LAN_SUBNET:?LAN_SUBNET debe estar definido en .env},+127.0.0.1'
       FTLCONF_webserver_session_timeout: '1800'
       # NTP cliente/servidor apagados a propósito: este stack es solo DNS.
       FTLCONF_ntp_sync_active: 'false'
@@ -44,7 +48,6 @@ services:
       FTLCONF_ntp_ipv6_active: 'false'
     volumes:
       - './etc-pihole:/etc/pihole'
-      - './etc-dnsmasq.d:/etc/dnsmasq.d'
     networks:
       pihole_net:
         ipv4_address: 172.20.0.3
