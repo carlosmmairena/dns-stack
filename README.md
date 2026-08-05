@@ -72,6 +72,21 @@ Después, apuntar el DNS del router (o de cada dispositivo) a la IP del host don
 
 `pihole` no arranca a servir tráfico hasta que `dnscrypt-proxy` pasa su healthcheck — que hace una resolución DNS real (`drill` contra `example.com`), no solo comprueba que el puerto esté abierto. Esto significa que el arranque del stack depende de que el host tenga conectividad real a internet en ese momento: si no la hay, `dnscrypt-proxy` no se reporta sano y `pihole` queda esperando — comportamiento esperado, no un bug (sin upstream alcanzable no hay DNS que servir de todas formas).
 
+### Límites de memoria/CPU según la RAM de la Raspberry Pi
+
+`pihole` y `dnscrypt-proxy` no tienen límite de memoria ni de CPU en `docker-compose.yml` — sin uno, una fuga de memoria (hay memory leaks conocidos y documentados por los mantenedores de Pi-hole FTL) o un pico de CPU puede agotar los recursos de todo el host. Para producción, sumar el overlay que corresponda a la RAM real de tu Raspberry Pi:
+
+| RAM del host | Overlay | Modelos típicos |
+|---|---|---|
+| 2GB | `docker-compose.pi-2gb.yml` | Pi 3B+, Pi 4 (2GB), Pi Zero 2 W |
+| 8GB | `docker-compose.pi-8gb.yml` | Pi 4 (8GB), Pi 5 (8GB) |
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.pi-2gb.yml up -d
+```
+
+No hay detección automática de la RAM del host — elegir el overlay que no corresponde (ej. `pi-8gb` en una Pi de 2GB) puede dejar a `pihole` sin memoria suficiente para arrancar. Si no se pasa ningún overlay de este tipo, el stack arranca sin ningún techo de recursos, como hasta ahora.
+
 Nota sobre `LAN_SUBNET`: es la subnet real de tu LAN (ej. `192.168.1.0/24`), usada para la ACL del webserver (`FTLCONF_webserver_acl` en `docker-compose.yml` la arma como `+${LAN_SUBNET},+127.0.0.1`) — se define en `.env`, no se edita `docker-compose.yml`. Si falta en `.env`, `docker compose up` va a fallar explícitamente en vez de arrancar con una ACL rota. Formato interno de la ACL: lista separada por **comas** — `webserver.acl` es un string, no un array; un `;` como separador rompe el parser del ACL y tumba el webserver (`check_acl: subnet must be [+|-]IP-addr[/x]` en `webserver.log`).
 
 ## Verificación
@@ -92,6 +107,8 @@ Un punto muy importante de todo el stack, pendiente de implementar después de e
 dns-stack/
 ├── docker-compose.yml
 ├── docker-compose.test.yml   (overlay de pruebas locales, ver CONTRIBUTING.md)
+├── docker-compose.pi-2gb.yml (overlay de límites de recursos, Pi de 2GB)
+├── docker-compose.pi-8gb.yml (overlay de límites de recursos, Pi de 8GB)
 ├── .env.example
 ├── .gitignore
 ├── dnscrypt-proxy/

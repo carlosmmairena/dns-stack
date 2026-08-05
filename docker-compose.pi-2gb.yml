@@ -1,0 +1,23 @@
+# Overlay de límites de recursos para Raspberry Pi con 2GB de RAM
+# (Pi 3B+, Pi 4 2GB, Pi Zero 2 W). Techo de memoria/CPU para pihole y
+# dnscrypt-proxy — protege al host de una fuga de memoria o un pico de CPU
+# en cualquiera de los dos servicios (ver openspec/changes/
+# add-resource-limits-by-ram-tier). No se auto-mergea: hay que pasarlo
+# explícito con -f.
+#
+# Uso: docker compose -f docker-compose.yml -f docker-compose.pi-2gb.yml up -d
+
+services:
+  pihole:
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.5"
+
+  dnscrypt-proxy:
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.5"
