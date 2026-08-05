@@ -70,7 +70,7 @@ docker compose up -d
 
 Después, apuntar el DNS del router (o de cada dispositivo) a la IP del host donde corre este stack.
 
-Nota sobre `FTLCONF_webserver_acl`: ajustar `192.168.90.0/24` a la subnet real de la LAN si es distinta — no copiarlo literal sin verificar.
+Nota sobre `FTLCONF_webserver_acl`: ajustar `192.168.90.0/24` a la subnet real de la LAN si es distinta — no copiarlo literal sin verificar. Formato: lista separada por **comas** (`+192.168.90.0/24,+127.0.0.1`) — `webserver.acl` es un string, no un array; usar `;` como separador rompe el parser del ACL y tumba el webserver (`check_acl: subnet must be [+|-]IP-addr[/x]` en `webserver.log`).
 
 ## Verificación
 
